@@ -1,0 +1,69 @@
+directional_focus_decoding:
+  type: classification
+  general:
+    data:
+      init_args:
+        dataset_class: superhuge.data.datasets.EegClassifyBaseDataset
+        metadata_fields: ["label"]
+    model:
+      class_path: superhuge.model.interface.ClassifyInterface
+      init_args:
+        hidden_dim: 64
+        loss:
+          class_path: superhuge.model.loss.CrossEntropyLoss
+        
+        # 优化器配置
+        optimizer_class: torch.optim.SGD
+        optimizer_args:
+          lr: 3.e-1
+          weight_decay: 5.e-4
+          momentum: 0.9
+        lr_scheduler_class: torch.optim.lr_scheduler.MultiStepLR
+        lr_scheduler_args:
+          milestones: [10, 35]
+          gamma: 0.5
+        
+        # [关键修改] 全局强制指定通道数为 64
+        # 这样所有任务都会继承这个设置，覆盖默认的 74
+        model_common_args:
+          num_channels: 64
+
+  tasks:
+    # 你的自定义任务
+    eareeg_scalp_task:
+      enable: 1  # <--- 开启
+      data:
+        init_args:
+          meta_filter_func_args:
+            - as_is 
+      model:
+        init_args:
+          model_args:
+            num_class: 2
+
+    # [重要] 关闭其他所有默认任务，防止干扰
+    binary_leftright:
+      enable: 0 
+    binary_frontrear:
+      enable: 0
+    four-class:
+      enable: 0
+    eight-class:
+      enable: 0
+
+  cross_validation:
+    leave_one_trial_out:
+      enable: 1
+      data:
+        init_args:
+          dataset_args:
+            meta_group_func: superhuge.data.metadata_processing.group.loto
+          n_folds: 5
+    
+    # 关闭其他 CV 策略
+    unseen_test_shuffled:
+      enable: 0
+    leave_one_subject_out:
+      enable: 0
+    leave_one_dataset_out:
+      enable: 0

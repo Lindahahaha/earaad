@@ -1,33 +1,43 @@
----
 class_path: superhuge.data.interface.DInterface
 init_args:
   dataloader_args:
     batch_size: 20
     drop_last: false
-    num_workers: 2
+    num_workers: 4
     persistent_workers: true
     pin_memory: true
-    prefetch_factor: 8
-  dataset_class: superhuge.data.datasets.EegDataset
+    prefetch_factor: 4
+  
+  # [修改点1] 指定为分类数据集 (如果你的任务是分类)
+  dataset_class: superhuge.data.datasets.EegClassifyBaseDataset
+  
+  # [修改点2] 采样率
   fs: 128
+  
+  # [修改点3] 元数据过滤器
+  # 你的脚本中 scalp 数据集的 DATASET_ID = 12，所以这里要筛选 12
   meta_filter_func:
-    - class_path: superhuge.data.filters.MetadataValueSelector
+    - class_path: superhuge.data.metadata_filters.MetadataValueSelector
       init_args:
         attribute_name: dataset_id
         attribute_value:
-          # - 1 # AHU
-          # - 2 # DTU
-          # - 3 # Estart
-          - 4 # KUL: lrtc?
-          # - 5 # KUL-AV-GC?
-          # - 6 # NJU
-          # - 7 # NUS
-          # - 8 # PKU?
-          # - 9 # sparKULee
-  overlap: 2
-  root_path: E:/derivatives/SuperHuge
-  preproc_stage: preprocessed
+          - 12 
+
+
+
+
+
+
+  overlap: 1 # 如果不想重叠切片，设为0；或者根据需要设为 2, 5 等
+  
+  # [修改点4] 数据根路径 (脚本中的 NEW_TARGET_ROOT)
+  root_path: /share/workspace3/shared_dataset/EAREEG-dataset/processed_v2
+  
+  # [修改点5] 数据集文件夹名 (脚本中生成的 dataset_folder_name)
+  preproc_stage: EAREEG_scalp
+  
   transform:
+    # 滤波 (可选，如果数据已滤波可注释掉)
     - class_path: superhuge.data.transforms.Filter
       init_args:
         apply_prob: 1.0
@@ -37,6 +47,8 @@ init_args:
         btype: bandpass
         order: 5
         fs: ${init_args.fs}
+    
+    # [修改点6] 缩放变换 (你的脚本生成了 scaling_factor.pkl)
     - class_path: superhuge.data.transforms.Scale
       init_args:
         preproc_stage: ${init_args.preproc_stage}
@@ -45,17 +57,8 @@ init_args:
         whom: eeg
         root_path: ${init_args.root_path}
         scaling_factor_path: scaling_factor.pkl
-    - class_path: superhuge.data.transforms.Scale
-      init_args:
-        preproc_stage: ${init_args.preproc_stage}
-        apply_prob: 1.0
-        when: before_returning
-        whom: audio
-        root_path: ${init_args.root_path}
-        scaling_factor_path: scaling_factor.pkl
-    # - class_path: superhuge.data.transforms.ZScore
-    #   init_args:
-    #     apply_prob: 1.0
-    #     when: before_returning
-    #     whom: audio
-  window_length: 10
+        
+  # [修改点7] 窗口长度 (秒)
+  # 你的数据长约 58s，如果显存足够且想由模型切分，可设大一点；
+  # 或者设为 2s, 5s 等短窗口进行切片训练
+  window_length: 1

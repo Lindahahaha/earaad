@@ -59,11 +59,16 @@ class MInterface(pl2.LightningModule, ABC):
                 multiloss_weights is None
             ), f"When specifying a single loss, you should not specify the loss weights, but got {loss} and {multiloss_weights}"
         self.loss = loss
-        self.loss_weights = (
-            nn.Parameter(torch.tensor(loss_weights, device=self.device))
-            if loss_weights is not None
-            else None
-        )
+        
+        # [关键修改] 使用 register_buffer 而不是 nn.Parameter
+        # 1. 自动处理设备移动 (CPU -> GPU)
+        # 2. 默认 requires_grad=False，解决梯度报错
+        # 3. dtype=torch.float32 解决 Double 类型报错
+        if loss_weights is not None:
+            self.register_buffer("loss_weights", torch.tensor(loss_weights, dtype=torch.float32))
+        else:
+            self.loss_weights = None
+        
         self.multiloss_weights = multiloss_weights
         self.configure_loss()
 

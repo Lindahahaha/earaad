@@ -130,6 +130,8 @@ class MultiRunCLI:
                     ),
                     run=False,
                     save_config_callback=SaveConfigCallback if save_config else None,
+                    # [修改 1] 允许覆盖已存在的配置文件，解决 SaveConfigCallback 报错
+                    save_config_kwargs={"overwrite": True},
                 )
 
                 cli.trainer.fit(
@@ -184,10 +186,14 @@ class NamedParamsCLI(LightningCLI):
             "model.init_args.model_common_args.window_length",
             apply_on="instantiate",
         )
-        parser.link_arguments(
-            "model.init_args.num_mix_out_channels",
-            "model.init_args.model_common_args.num_channels",
-        )
+        
+        # [修改 3] 注释掉下方代码，防止 num_mix_out_channels (None) 覆盖 num_channels (64)
+        # 从而解决 Kernel size mismatch 问题
+        # parser.link_arguments(
+        #     "model.init_args.num_mix_out_channels",
+        #     "model.init_args.model_common_args.num_channels",
+        # )
+        
         parser.link_arguments(
             "data.init_args.root_path", "data.init_args.transform.root_path"
         )
@@ -205,7 +211,8 @@ class NamedParamsCLI(LightningCLI):
         )
         parser.link_arguments(
             "data.sample_weights",
-            "model.init_args.loss_args.weight",
+            # [修改 2] 修正参数名 loss_args.weight -> loss_weights
+            "model.init_args.loss_weights", 
             apply_on="instantiate",
         )
         parser.add_argument("--experiment_name", type=str)

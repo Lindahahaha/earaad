@@ -1,7 +1,11 @@
----
-class_path: superhuge.model.interface.MInterface
+# 修改 class_path 为 ClassifyInterface 以匹配你的任务
+class_path: superhuge.model.interface.ClassifyInterface
 init_args:
   model_class: superhuge.model.pure_cnn.SimpleCNN
   model_args:
     temporal_kernel_size: 17
     num_kernels: 5
+  
+  # [强制添加] 在这里显式指定通道数
+  model_common_args:
+    num_channels: 64

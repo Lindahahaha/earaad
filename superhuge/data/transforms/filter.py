@@ -18,22 +18,26 @@ class Filter(Transform):
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
+        nyq = fs / 2.0  # 计算奈奎斯特频率
+
         if isinstance(Wn, float):
-            assert 0 < Wn < 1, f"Wn must be between 0 and 1, got {Wn}."
+            # 修改点 1: 检查是否小于 nyq，而不是 1
+            assert 0 < Wn < nyq, f"Wn must be between 0 and Nyquist ({nyq}), got {Wn}."
             assert btype in [
                 "lowpass",
                 "highpass",
             ], f"btype must be 'lowpass' or 'highpass', got {btype}."
-            self.Wn = Wn / (fs / 2)
+            self.Wn = Wn / nyq
         elif isinstance(Wn, Sequence):
+            # 修改点 2: 检查是否小于 nyq，而不是 1
             assert all(
-                0 < wn < 1 for wn in Wn
-            ), f"All elements in Wn must be between 0 and 1, got {Wn}."
+                0 < wn < nyq for wn in Wn
+            ), f"All elements in Wn must be between 0 and Nyquist ({nyq}), got {Wn}."
             assert btype in [
                 "bandpass",
                 "bandstop",
             ], f"btype must be 'bandpass' or 'bandstop', got {btype}."
-            self.Wn = [wn / (fs / 2) for wn in Wn]
+            self.Wn = [wn / nyq for wn in Wn]
         else:
             raise TypeError(
                 f"Wn must be a float or a sequence of floats, got {type(Wn)}."

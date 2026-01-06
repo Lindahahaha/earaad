@@ -24,7 +24,7 @@ and the dataset file's constructor. The MInterface and
 DInterface can be seen as transparent to all your args.
 """
 import os
-
+import sys
 import numpy as np
 
 os.environ["KERAS_BACKEND"] = "torch"
@@ -40,16 +40,27 @@ torch.set_float32_matmul_precision("medium")
 if __name__ == "__main__":
     project_path = os.path.dirname(os.path.abspath(__file__)).split("src")[0]
     config_path = os.path.join(project_path, "configs")
-    # model_config = pick_file(project_path, timeout=10)
-    # if not model_config:
-    model_config = os.path.join(project_path, "configs", "models", "simple_cnn.yaml")
-    cli = MultiRunCLI(
-        "fit",
-        "--task_config",
-        os.path.join(config_path, "task_config.yaml"),
-        "--config",
-        os.path.join(config_path, "config.yaml"),
-        "--model",
-        model_config,
-    )
+    
+    # 检查是否有命令行参数输入
+    if len(sys.argv) > 1:
+        # 使用命令行参数
+        # 注意：sys.argv[1:] 包含了你输入的 --task_config 等所有参数
+        cli = MultiRunCLI(*sys.argv[1:])
+    else:
+        # 没有参数时，回退到默认的硬编码配置
+        model_config = os.path.join(project_path, "configs", "models", "simple_cnn.yaml")
+        cli = MultiRunCLI(
+            "fit",
+            "--task_config",
+            os.path.join(config_path, "task_config.yaml"),
+            "--config",
+            os.path.join(config_path, "config.yaml"),
+            "--model",
+            model_config,
+        )
+    
+    # 关键步骤：清空 sys.argv，防止 LightningCLI 报错 "both args and command line arguments"
+    # MultiRunCLI 已经内部保存了参数，这里清空不会影响执行
+    sys.argv = [sys.argv[0]]
+
     cli.run()

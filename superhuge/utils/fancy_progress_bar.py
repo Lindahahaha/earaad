@@ -1,6 +1,6 @@
 import inspect
 from collections.abc import Iterable
-from typing import cast
+from typing import cast, Optional, Dict, Any
 
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import RichProgressBar
@@ -35,29 +35,75 @@ class MetricsTableColumn(MetricsTextColumn):
         )
 
     def render(self, task: "Task"):  # type: ignore
-        assert isinstance(self._trainer.progress_bar_callback, RichProgressBar)
-        if (
-            self._trainer.state.fn != "fit"
-            or self._trainer.sanity_checking
-            or self._trainer.progress_bar_callback.train_progress_bar_id != task.id
-        ):
-            return Text()
-        if self._trainer.training and task.id not in self._tasks:
-            self._tasks[task.id] = "None"
-            if self._renderable_cache:
-                self._current_task_id = cast(TaskID, self._current_task_id)
-                self._tasks[self._current_task_id] = self._renderable_cache[
-                    self._current_task_id
-                ][1]
-            self._current_task_id = task.id
-        if self._trainer.training and task.id != self._current_task_id:
-            return self._tasks[task.id]
+        """
+        渲染进度条的方法。
+        加了全局 try-except 保护，防止在训练结束清理阶段（teardown）因缓存清空导致的崩溃。
+        """
+        try:
+            # 1. 基础类型检查
+            if not isinstance(self._trainer.progress_bar_callback, RichProgressBar):
+                return Text()
 
-        table = self._generate_metrics_table()
-        return table
+            # 2. 状态检查：非 fit 阶段、sanity check 或非主进度条时不渲染
+            # 使用 getattr 防止部分属性在 teardown 时不可用
+            train_bar_id = getattr(self._trainer.progress_bar_callback, 'train_progress_bar_id', None)
+            
+            # 安全获取状态
+            state_fn = getattr(self._trainer.state, 'fn', None)
+            sanity_checking = getattr(self._trainer, 'sanity_checking', False)
+
+            if (
+                state_fn != "fit"
+                or sanity_checking
+                or train_bar_id != task.id
+            ):
+                return Text()
+            
+            # 3. 任务切换逻辑与缓存安全访问
+            # 使用 getattr 安全获取 _tasks 字典
+            tasks_cache = getattr(self, "_tasks", {})
+            render_cache = getattr(self, "_renderable_cache", {})
+            
+            if self._trainer.training and task.id not in tasks_cache:
+                tasks_cache[task.id] = "None"
+                
+                # [关键修复] 安全访问 _renderable_cache
+                # 在程序退出时，缓存可能已被清空，必须先检查 key 是否存在
+                current_id = getattr(self, "_current_task_id", None)
+                
+                if render_cache and current_id is not None:
+                    current_id = cast(TaskID, current_id)
+                    # 只有当 ID 确实存在于缓存中时才进行赋值
+                    if current_id in render_cache:
+                        try:
+                            # 尝试获取缓存内容，如果是 tuple 则取第二个元素（Rich 的通常结构）
+                            content = render_cache[current_id]
+                            if isinstance(content, (list, tuple)) and len(content) > 1:
+                                tasks_cache[current_id] = content[1]
+                            else:
+                                tasks_cache[current_id] = content
+                        except Exception:
+                            pass # 忽略缓存读取错误
+                
+                self._current_task_id = task.id
+                
+            # 4. 返回非当前任务的静态内容
+            if self._trainer.training and task.id != self._current_task_id:
+                return tasks_cache.get(task.id, Text(""))
+
+            # 5. 生成当前任务的动态表格
+            return self._generate_metrics_table()
+
+        except Exception:
+            # [终极安全网]
+            # 如果在渲染过程中发生任何错误（如 KeyError, AttributeError, IndexError 等），
+            # 尤其是在 teardown 阶段，直接返回空文本，防止程序崩溃。
+            return Text()
 
     def _generate_metrics_table(self):
+        # 安全移除 v_num
         self._metrics.pop("v_num", None)
+        
         train_metrics = {
             k.split("/", 1)[-1]: v
             for k, v in self._metrics.items()
@@ -144,7 +190,9 @@ class FancyProgressBar(RichProgressBar):
             self._reset_progress_bar_ids()
             reconfigure(**self._console_kwargs)
             self._console = get_console()
-            self._console.clear_live()
+            
+            # [关键修复] 移除了 clear_live()，防止 IndexError
+            
             self._metric_component = MetricsTableColumn(
                 trainer,
                 self.theme.metrics,

@@ -15,7 +15,8 @@ class ModelInputArgs(BaseModel):
 class LossArgs(BaseModel):
     weight: Sequence[float | torch.Tensor] | None = None
 
-    model_config = {"extra": "allow"}
+    # 修改这里：添加 "arbitrary_types_allowed": True 以支持 torch.Tensor
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

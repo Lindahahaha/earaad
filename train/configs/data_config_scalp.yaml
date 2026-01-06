@@ -1,0 +1,33 @@
+class_path: superhuge.data.interface.DInterface
+init_args:
+  # 数据集根目录 (根据您的 tree 输出确认)
+  root_path: /share/workspace3/shared_dataset/EAREEG-dataset/processed_v2
+  # 子文件夹名称 (确保该目录下包含 'eeg' 文件夹)
+  preproc_stage: EAREEG_scalp
+  
+  dataset_class: superhuge.data.datasets.EegClassifyBaseDataset
+  fs: 128
+  window_length: 10
+  overlap: 0
+  
+  # 过滤器: 对应预处理脚本中设置的 DATASET_ID = 12
+  meta_filter_func:
+    - class_path: superhuge.data.metadata_filters.MetadataValueSelector
+      init_args:
+        attribute_name: dataset_id
+        attribute_value: 12
+
+  # 加载预计算的 scaling factor 进行归一化
+  transform:
+    - class_path: superhuge.data.transforms.Scale
+      init_args:
+        preproc_stage: ${init_args.preproc_stage}
+        apply_prob: 1.0
+        when: before_returning
+        whom: eeg
+        root_path: ${init_args.root_path}
+        scaling_factor_path: scaling_factor.pkl
+        
+  dataloader_args:
+    batch_size: 32
+    num_workers: 4

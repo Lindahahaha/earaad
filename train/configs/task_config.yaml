@@ -6,13 +6,23 @@ directional_focus_decoding:
         dataset_class: superhuge.data.datasets.EegClassifyBaseDataset
         metadata_fields: ["label"]
     model:
-      class_path: superhuge.model.interface.ChannelMapping1DClassifyInterface
-      # class_path: superhuge.model.interface.ChannelMixing1DClassifyInterface
+      class_path: superhuge.model.interface.ClassifyInterface
       init_args:
-        hidden_dim: 5
-        # num_mix_out_channels: 64
+        hidden_dim: 64
         loss:
           class_path: superhuge.model.loss.CrossEntropyLoss
+        
+        # [新增] 在这里添加优化器配置
+        optimizer_class: torch.optim.AdamW
+        optimizer_args:
+          lr: 0.01
+          weight_decay: 5.e-4
+          momentum: 0.9
+        lr_scheduler_class: torch.optim.lr_scheduler.MultiStepLR
+        lr_scheduler_args:
+          milestones: [10, 35]
+          gamma: 0.5
+
   tasks:
     binary_leftright:
       enable: 1
@@ -22,8 +32,9 @@ directional_focus_decoding:
             - binary_leftright
       model:
         init_args:
-          model_args:
-            num_class: 2
+          # 修改点 1：提升 num_class 的层级
+          num_class: 2
+          
     binary_frontrear:
       enable: 0
       data:
@@ -32,8 +43,9 @@ directional_focus_decoding:
             - binary_frontrear
       model:
         init_args:
-          model_args:
-            num_class: 2
+          # 修改点
+          num_class: 2
+          
     four-class:
       enable: 0
       data:
@@ -42,8 +54,9 @@ directional_focus_decoding:
             - four-class
       model:
         init_args:
-          model_args:
-            num_class: 4
+          # 修改点
+          num_class: 4
+          
     eight-class:
       enable: 0
       data:
@@ -52,34 +65,34 @@ directional_focus_decoding:
             - eight-class
       model:
         init_args:
-          model_args:
-            num_class: 8
+          # 修改点
+          num_class: 8
 
   cross_validation:
     unseen_test_shuffled:
       enable: 1
       data:
         init_args:
-          meta_group_func: superhuge.data.metadata_processing.unseen_test_unbalanced_shuffled
+          meta_group_func: superhuge.data.metadata_processing.loto
           n_folds: 4
     leave_one_trial_out:
-      enable: 1
+      enable: 0
       data:
         init_args:
           dataset_args:
-            meta_group_func: superhuge.datasets.metadata_processing.group.loto
+            meta_group_func: superhuge.data.metadata_processing.group.loto
     leave_one_subject_out:
       enable: 0
       data:
         init_args:
           dataset_args:
-            meta_group_func: superhuge.datasets.metadata_processing.group.loso
+            meta_group_func: superhuge.data.metadata_processing.group.loso
     leave_one_dataset_out:
       enable: 0
       data:
         init_args:
           dataset_args:
-            meta_group_func: superhuge.datasets.metadata_processing.group.lodo
+            meta_group_func: superhuge.data.metadata_processing.group.lodo
 
 speech_reconstruction:
   type: regression

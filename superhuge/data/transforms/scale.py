@@ -42,6 +42,9 @@ class Scale(Transform):
             warn(f"Scaling factor for {entry} not found. Skip applying scaling.")
             return x, *args
         else:
+            # 这里的逻辑是：如果处理的是音频，根据 metadata 取 key；否则默认取 'eeg'
+            # 之前那个 TypeError 就是因为 self._scale[entry][key] 取出的值是 float 而非 dict
+            # 现在你修复了 pkl 文件，下面的代码就能正常工作了
             key = meta.speech_feature_type if self.whom == "audio" else "eeg"  # type: ignore
             scale_factor = self._scale[entry][key]
 
