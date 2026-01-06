@@ -4,7 +4,7 @@ init_args:
   model_class: superhuge.model.pure_cnn.SimpleCNN
   model_args:
     temporal_kernel_size: 17
-    num_kernels: 5
+    num_kernels: 32
   
   # [强制添加] 在这里显式指定通道数
   model_common_args:
